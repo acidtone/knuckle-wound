@@ -16,6 +16,7 @@
             height: 100%;
             margin: 0;
             background-color: #000;
+            touch-action: manipulation;
         }
     </style>
 </head>
@@ -162,7 +163,7 @@
           material.uniforms.viewportAspect.value = window.innerWidth / window.innerHeight;
         });
 
-        window.addEventListener('click', assignLetters);
+        window.addEventListener('pointerup', assignLetters);
         
         function animate() {
           requestAnimationFrame(animate);
