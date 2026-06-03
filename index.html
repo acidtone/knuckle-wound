@@ -58,31 +58,47 @@
         ];
 
         const wordPool = [...new Set([...adjectives, ...nouns])];
+        const STAGGER_MS = 80;
+        let staggerTimer = null;
+
+        function drawLetter(L) {
+          ctx.save();
+          ctx.translate(L.x * maskCanvas.width, L.y * maskCanvas.height);
+          ctx.rotate(L.rotation);
+          ctx.font = `bold ${L.size}px sans-serif`;
+          ctx.fillStyle = 'white';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(L.char, 0, 0);
+          ctx.restore();
+          textMaskTexture.needsUpdate = true;
+        }
+
+        function clearMask() {
+          ctx.fillStyle = 'black';
+          ctx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+          textMaskTexture.needsUpdate = true;
+        }
 
         function assignLetters() {
+          if (staggerTimer) clearInterval(staggerTimer);
+
           const word1 = pickRandom(wordPool);
           const word2 = pickRandom(nouns.filter((n) => n !== word1));
           [...word1, ...word2].forEach((letter, i) => {
             letters[i].char = letter.toUpperCase();
           });
-          drawMask();
-        }
-        
-        function drawMask() {
-          ctx.fillStyle = 'black';
-          ctx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
-          for (const L of letters) {
-            ctx.save();
-            ctx.translate(L.x * maskCanvas.width, L.y * maskCanvas.height);
-            ctx.rotate(L.rotation);
-            ctx.font = `bold ${L.size}px sans-serif`;
-            ctx.fillStyle = 'white';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(L.char, 0, 0);
-            ctx.restore();
-          }
-          textMaskTexture.needsUpdate = true;
+
+          clearMask();
+          let count = 0;
+          staggerTimer = setInterval(() => {
+            drawLetter(letters[count]);
+            count++;
+            if (count >= letters.length) {
+              clearInterval(staggerTimer);
+              staggerTimer = null;
+            }
+          }, STAGGER_MS);
         }
 
         const textMaskTexture = new THREE.Texture(maskCanvas);
