@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Knuckle Wound: Your Hand Tattoo Generator</title>
     <script src="https://cdn.jsdelivr.net/npm/three-js@79.0.0/three.min.js"></script>
     <style>
         body {
@@ -58,11 +58,15 @@
         ];
 
         const wordPool = [...new Set([...adjectives, ...nouns])];
-        const word1 = pickRandom(wordPool);
-        const word2 = pickRandom(nouns.filter((n) => n !== word1));
-        [...word1, ...word2].forEach((letter, i) => {
-          letters[i].char = letter.toUpperCase();
-        });
+
+        function assignLetters() {
+          const word1 = pickRandom(wordPool);
+          const word2 = pickRandom(nouns.filter((n) => n !== word1));
+          [...word1, ...word2].forEach((letter, i) => {
+            letters[i].char = letter.toUpperCase();
+          });
+          drawMask();
+        }
         
         function drawMask() {
           ctx.fillStyle = 'black';
@@ -82,7 +86,7 @@
         }
 
         const textMaskTexture = new THREE.Texture(maskCanvas);
-        drawMask();
+        assignLetters();
 
         const material = new THREE.ShaderMaterial({
           uniforms: {
@@ -141,6 +145,8 @@
           renderer.setSize(window.innerWidth, window.innerHeight);
           material.uniforms.viewportAspect.value = window.innerWidth / window.innerHeight;
         });
+
+        window.addEventListener('click', assignLetters);
         
         function animate() {
           requestAnimationFrame(animate);
