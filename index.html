@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://cdn.jsdelivr.net/npm/three-js@79.0.0/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            background-color: #000;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script type="module">
+        import { nouns } from './nouns.js';
+        import { adjectives } from './adjectives.js';
+
+        const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+        camera.position.z = 1;  // pull back so the plane sits in front of the camera
+        const canvas = document.getElementById('canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        const PHOTO_ASPECT = 4032 / 3024;
+
+        const handPhotoTexture = new THREE.TextureLoader().load('images/knuckles.jpg');
+
+        const maskCanvas = document.createElement('canvas');
+        const maskW = 512;
+        const maskH = Math.round(512 / (4032 / 3024));  // ~384
+        maskCanvas.width = maskW;
+        maskCanvas.height = maskH;
+
+        const ctx = maskCanvas.getContext('2d');
+
+        const letters = [
+          { x: 0.09, y: 0.42, size: 43.5, rotation: -0.06 },
+          { x: 0.17, y: 0.41, size: 46, rotation: -0.04 },
+          { x: 0.275, y: 0.4, size: 48, rotation: -0.04 },
+          { x: 0.40, y: 0.4, size: 50, rotation: 0 },
+          { x: 0.53, y: 0.4, size: 50, rotation: 0 },
+          { x: 0.67, y: 0.4, size: 50, rotation: 0 },
+          { x: 0.78, y: 0.4, size: 46.5, rotation: 0.09 },
+          { x: 0.865, y: 0.42, size: 43.5, rotation: 0.12 },
+        ];
+
+        const wordPool = [...new Set([...adjectives, ...nouns])];
+        const word1 = pickRandom(wordPool);
+        const word2 = pickRandom(nouns.filter((n) => n !== word1));
+        [...word1, ...word2].forEach((letter, i) => {
+          letters[i].char = letter.toUpperCase();
+        });
+        
+        function drawMask() {
+          ctx.fillStyle = 'black';
+          ctx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+          for (const L of letters) {
+            ctx.save();
+            ctx.translate(L.x * maskCanvas.width, L.y * maskCanvas.height);
+            ctx.rotate(L.rotation);
+            ctx.font = `bold ${L.size}px sans-serif`;
+            ctx.fillStyle = 'white';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(L.char, 0, 0);
+            ctx.restore();
+          }
+          textMaskTexture.needsUpdate = true;
+        }
+
+        const textMaskTexture = new THREE.Texture(maskCanvas);
+        drawMask();
+
+        const material = new THREE.ShaderMaterial({
+          uniforms: {
+            handPhotoTexture: { value: handPhotoTexture },
+            textMaskTexture: { value: textMaskTexture },
+            photoAspect: { value: PHOTO_ASPECT },
+            viewportAspect: { value: window.innerWidth / window.innerHeight },
+          },
+          vertexShader: `
+            varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            uniform sampler2D handPhotoTexture;
+            uniform sampler2D textMaskTexture;
+            uniform float photoAspect;
+            uniform float viewportAspect;
+            varying vec2 vUv;
+
+            vec2 containUV(vec2 uv) {
+              if (viewportAspect > photoAspect) {
+                float scale = photoAspect / viewportAspect;
+                float offset = (1.0 - scale) * 0.5;
+                uv.x = (uv.x - offset) / scale;
+              } else {
+                float scale = viewportAspect / photoAspect;
+                float offset = (1.0 - scale) * 0.5;
+                uv.y = (uv.y - offset) / scale;
+              }
+              return uv;
+            }
+
+            void main() {
+              vec2 uv = containUV(vUv);
+              if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+                gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+                return;
+              }
+              vec4 hand = texture2D(handPhotoTexture, uv);
+              float mask = texture2D(textMaskTexture, uv).r;
+              float ink = 0.45;
+              vec3 color = hand.rgb * mix(1.0, ink, mask);
+              gl_FragColor = vec4(color, 1.0);
+            }
+          `,
+        });
+
+        const geometry = new THREE.PlaneGeometry(2, 2);
+        const mesh = new THREE.Mesh(geometry, material);
+        scene.add(mesh);
+
+        window.addEventListener('resize', () => {
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          material.uniforms.viewportAspect.value = window.innerWidth / window.innerHeight;
+        });
+        
+        function animate() {
+          requestAnimationFrame(animate);
+          renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
